@@ -7,15 +7,52 @@ fn main() {
 }
 
 fn add_n(v: Vec<i32>, n: i32) -> Vec<i32> {
-    unimplemented!()
+    // unimplemented!()
+    let mut v = v;
+    for i in &mut v {
+        *i += n;
+    }
+    v
 }
 
 fn add_n_inplace(v: &mut Vec<i32>, n: i32) {
-    unimplemented!()
+    for i in v {
+        *i += n;
+    }
 }
 
 fn dedup(v: &mut Vec<i32>) {
-    unimplemented!()
+    // unimplemented!()
+    let mut hset = HashSet::new();
+    let mut retain_vec = Vec::new();
+    for n in v.iter() {
+        if hset.insert(*n) {
+            retain_vec.push(*n);
+        }
+    }
+    v.clear();
+    for i in retain_vec {
+        v.push(i);
+    }
+
+    // 失败尝试3
+    // let mut retain_vec = Vec::new();
+    // for n in v {
+    //     if hset.insert(n) {
+    //         retain_vec.push(n);
+    //     }
+    // }
+    // v.retain(|x| retain_vec.contains(x));
+
+    // 失败尝试2
+    // v.retain(|x| hset.insert(x));
+
+    // 失败尝试1
+    // for (i, n) in v.iter().enumerate() {
+    //     if !hset.insert(n) {
+    //         v.remove(i);
+    //     }
+    // }
 }
 
 #[cfg(test)]
@@ -24,14 +61,14 @@ mod test {
 
     #[test]
     fn test_add_n() {
-        assert_eq!(add_n(vec![1], 2), vec![3]);
+        assert_eq!(add_n(vec![1, 100, 5], 2), vec![3, 102, 7]);
     }
 
     #[test]
     fn test_add_n_inplace() {
-        let mut v = vec![1];
+        let mut v = vec![1, 100, 5];
         add_n_inplace(&mut v, 2);
-        assert_eq!(v, vec![3]);
+        assert_eq!(v, vec![3, 102, 7]);
     }
 
     #[test]
