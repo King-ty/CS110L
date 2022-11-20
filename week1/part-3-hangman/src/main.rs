@@ -34,7 +34,66 @@ fn main() {
     // secret_word by doing secret_word_chars[i].
     let secret_word_chars: Vec<char> = secret_word.chars().collect();
     // Uncomment for debugging:
-    // println!("random word: {}", secret_word);
+    println!("random word: {}", secret_word);
+    // println!("random word: {:?}", secret_word_chars);
 
     // Your code here! :)
+
+    println!("Welcome to CS110L Hangman!");
+
+    let mut guessed_letters = String::new();
+    let mut current_word = ['-'].repeat(secret_word_chars.len());
+    let mut left_num = NUM_INCORRECT_GUESSES;
+    let mut failed_flag = false;
+
+    while current_word.iter().collect::<String>() != secret_word {
+        println!(
+            "The word so far is {}",
+            current_word.iter().collect::<String>()
+        );
+        println!(
+            "You have guessed the following letters: {}",
+            guessed_letters
+        );
+        println!("You have {} guesses left", left_num);
+
+        print!("Please guess a letter: ");
+        // Make sure the prompt from the previous line gets displayed:
+        io::stdout().flush().expect("Error flushing stdout.");
+        let mut guess = String::new();
+        io::stdin()
+            .read_line(&mut guess)
+            .expect("Error reading line.");
+        let guess = guess.chars().nth(0).unwrap();
+
+        guessed_letters.push(guess);
+
+        let mut flag: bool = false;
+        for i in 0..secret_word_chars.len() {
+            if secret_word_chars[i] == guess && secret_word_chars[i] != current_word[i] {
+                current_word[i] = secret_word_chars[i];
+                flag = true;
+                break;
+            }
+        }
+        if !flag {
+            left_num -= 1;
+            println!("Sorry, that letter is not in the word");
+        }
+
+        println!();
+
+        if left_num <= 0 {
+            failed_flag = true;
+            println!("Sorry, you ran out of guesses!");
+            break;
+        }
+    }
+
+    if !failed_flag {
+        println!(
+            "Congratulations you guessed the secret word: {}!",
+            secret_word
+        );
+    }
 }
