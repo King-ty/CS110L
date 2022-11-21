@@ -26,31 +26,105 @@ fn lcs(seq1: &Vec<String>, seq2: &Vec<String>) -> Grid {
     // external can go wrong that we would want to handle in higher-level functions). The unwrap()
     // calls act like having asserts in C code, i.e. as guards against programming error.
 
-    let mut lcs = Grid::new(seq1.len() + 1, seq2.len() + 1); // 初始化即为0
+    let mut lcs_table = Grid::new(seq1.len() + 1, seq2.len() + 1); // 初始化即为0
     for i in 0..seq1.len() {
         for j in 0..seq2.len() {
             if seq1.get(i).unwrap() == seq2.get(j).unwrap() {
-                lcs.set(i + 1, j + 1, lcs.get(i, j).unwrap() + 1).unwrap();
+                lcs_table
+                    .set(i + 1, j + 1, lcs_table.get(i, j).unwrap() + 1)
+                    .unwrap();
             } else {
-                lcs.set(
-                    i + 1,
-                    j + 1,
-                    cmp::max(lcs.get(i + 1, j).unwrap(), lcs.get(i, j + 1).unwrap()),
-                )
-                .unwrap();
+                lcs_table
+                    .set(
+                        i + 1,
+                        j + 1,
+                        cmp::max(
+                            lcs_table.get(i + 1, j).unwrap(),
+                            lcs_table.get(i, j + 1).unwrap(),
+                        ),
+                    )
+                    .unwrap();
             }
         }
     }
-    lcs
+    lcs_table
 }
 
-#[allow(unused)] // TODO: delete this line when you implement this function
 fn print_diff(lcs_table: &Grid, lines1: &Vec<String>, lines2: &Vec<String>, i: usize, j: usize) {
-    unimplemented!();
-    // Be sure to delete the #[allow(unused)] line above
+    if i > 0 && j > 0 && lines1.get(i - 1).unwrap() == lines2.get(j - 1).unwrap() {
+        print_diff(lcs_table, lines1, lines2, i - 1, j - 1);
+        println!("  {}", lines1.get(i - 1).unwrap());
+    } else if j > 0
+        && (i == 0 || lcs_table.get(i, j - 1).unwrap() > lcs_table.get(i - 1, j).unwrap())
+    {
+        print_diff(lcs_table, lines1, lines2, i, j - 1);
+        println!("> {}", lines2.get(j - 1).unwrap());
+    } else if i > 0
+        && (j == 0 || lcs_table.get(i, j - 1).unwrap() <= lcs_table.get(i - 1, j).unwrap())
+    {
+        print_diff(lcs_table, lines1, lines2, i - 1, j);
+        println!("< {}", lines1.get(i - 1).unwrap());
+    } else {
+        println!();
+    }
 }
 
-#[allow(unused)] // TODO: delete this line when you implement this function
+/// Wrong: 必须从后向前，存一下输出
+// fn print_diff2(lcs_table: &Grid, lines1: &Vec<String>, lines2: &Vec<String>) {
+//     let mut i = 0;
+//     let mut j = 0;
+//     let len1 = lines1.len();
+//     let len2 = lines2.len();
+//     while i < len1 || j < len2 {
+//         if i < len1 && j < len2 && lines1.get(i).unwrap() == lines2.get(j).unwrap() {
+//             println!("  {}", lines1.get(i).unwrap());
+//             i += 1;
+//             j += 1;
+//         } else if j < len2
+//             && (i == len1 || lcs_table.get(i + 1, j).unwrap() >= lcs_table.get(i, j + 1).unwrap())
+//         {
+//             println!("> {}", lines2.get(j).unwrap());
+//             j += 1;
+//         } else if i < len1
+//             && (j == len2 || lcs_table.get(i + 1, j).unwrap() < lcs_table.get(i, j + 1).unwrap())
+//         {
+//             println!("< {}", lines1.get(i).unwrap());
+//             i += 1;
+//         } else {
+//             println!();
+//         }
+//     }
+// }
+
+fn print_diff2(lcs_table: &Grid, lines1: &Vec<String>, lines2: &Vec<String>) {
+    let mut i = lines1.len();
+    let mut j = lines2.len();
+    let mut out_lines = Vec::new();
+    while i > 0 || j > 0 {
+        if i > 0 && j > 0 && lines1.get(i - 1).unwrap() == lines2.get(j - 1).unwrap() {
+            out_lines.push("  ".to_string() + lines1.get(i - 1).unwrap());
+            i -= 1;
+            j -= 1;
+        } else if j > 0
+            && (i == 0 || lcs_table.get(i, j - 1).unwrap() > lcs_table.get(i - 1, j).unwrap())
+        {
+            out_lines.push("> ".to_string() + lines2.get(j - 1).unwrap());
+            j -= 1;
+        } else if i > 0
+            && (j == 0 || lcs_table.get(i, j - 1).unwrap() <= lcs_table.get(i - 1, j).unwrap())
+        {
+            out_lines.push("< ".to_string() + lines1.get(i - 1).unwrap());
+            i -= 1;
+        } else {
+            println!();
+        }
+    }
+
+    for out_line in out_lines.iter().rev() {
+        println!("{}", out_line);
+    }
+}
+
 fn main() {
     let args: Vec<String> = env::args().collect();
     if args.len() < 3 {
@@ -60,8 +134,22 @@ fn main() {
     let filename1 = &args[1];
     let filename2 = &args[2];
 
-    unimplemented!();
-    // Be sure to delete the #[allow(unused)] line above
+    let file_lines1 = read_file_lines(&filename1).expect("read file1 lines failed");
+    let file_lines2 = read_file_lines(&filename2).expect("read file2 lines failed");
+
+    let lcs_table = lcs(&file_lines1, &file_lines2);
+
+    print_diff(
+        &lcs_table,
+        &file_lines1,
+        &file_lines2,
+        file_lines1.len(),
+        file_lines2.len(),
+    );
+
+    println!();
+
+    print_diff2(&lcs_table, &file_lines1, &file_lines2);
 }
 
 #[cfg(test)]
