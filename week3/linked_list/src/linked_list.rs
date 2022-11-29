@@ -71,5 +71,15 @@ impl<T> Drop for LinkedList<T> {
     }
 }
 
+impl<T: Clone> Clone for Node<T> {
+    fn clone(&self) -> Self{
+        Node {value: self.value.clone(), next: self.next.clone()}
+    }
+}
 
+impl<T: Clone> Clone for LinkedList<T> {
+    fn clone(&self) -> Self{
+        LinkedList {head: self.head.clone(), size: self.size}
+    }
+}
 
