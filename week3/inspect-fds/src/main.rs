@@ -16,15 +16,18 @@ fn main() {
     // DONE: Milestone 1: Get the target Process using psutils::get_target()
     // unimplemented!();
 
-    match ps_utils::get_target(target).expect("There is a problem calling ps or pgrep..."){
+    let process = match ps_utils::get_target(target).expect("There is a problem calling ps or pgrep..."){
         Some(process)=>{
             println!("Found pid {}", process.pid);
+            process
         },
         None=>{
             println!("Target \"{}\" did not match any running PIDs or executables", target);
             std::process::exit(1);
         }
-    }
+    };
+
+    process.print();
 }
 
 #[cfg(test)]

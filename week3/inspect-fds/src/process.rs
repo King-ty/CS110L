@@ -10,7 +10,7 @@ pub struct Process {
 }
 
 impl Process {
-    #[allow(unused)] // TODO: delete this line for Milestone 1
+    // #[allow(unused)] // DONE: delete this line for Milestone 1
     pub fn new(pid: usize, ppid: usize, command: String) -> Process {
         Process { pid, ppid, command }
     }
@@ -36,6 +36,10 @@ impl Process {
             open_files.push((fd, OpenFile::from_fd(self.pid, fd)?));
         }
         Some(open_files)
+    }
+
+    pub fn print(&self){
+        println!("========== \"{}\" (pid {}, ppid {}) ==========",self.command,self.pid,self.ppid);
     }
 }
 
