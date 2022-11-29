@@ -83,3 +83,14 @@ impl<T: Clone> Clone for LinkedList<T> {
     }
 }
 
+impl<T: PartialEq> PartialEq for Node<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.value == other.value && self.next == other.next
+    }
+}
+
+impl<T: PartialEq> PartialEq for LinkedList<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.size == other.size && self.head == other.head
+    }
+}
