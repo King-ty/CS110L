@@ -31,7 +31,21 @@ fn main() {
     println!("[{} ] == [{} ] ?: {}", list, list2, list == list2);
 
     // If you implement iterator trait:
-    //for val in &list {
-    //    println!("{}", val);
-    //}
+    for val in list2 {
+        print!("{} ", val);
+    }
+    println!();
+
+    for val in &list {
+        print!("{} ", val);
+    }
+    println!();
+
+    // for mut val in &mut list {
+    //     val = String::from("ha");
+    //     print!("{} ", val);
+    // }
+    // println!();
+
+    println!("list: {}", list);
 }

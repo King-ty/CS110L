@@ -13,29 +13,35 @@ struct Node<T> {
 
 impl<T> Node<T> {
     pub fn new(value: T, next: Option<Box<Node<T>>>) -> Node<T> {
-        Node {value: value, next: next}
+        Node {
+            value: value,
+            next: next,
+        }
     }
 }
 
 impl<T> LinkedList<T> {
     pub fn new() -> LinkedList<T> {
-        LinkedList {head: None, size: 0}
+        LinkedList {
+            head: None,
+            size: 0,
+        }
     }
-    
+
     pub fn get_size(&self) -> usize {
         self.size
     }
-    
+
     pub fn is_empty(&self) -> bool {
         self.get_size() == 0
     }
-    
+
     pub fn push_front(&mut self, value: T) {
         let new_node: Box<Node<T>> = Box::new(Node::new(value, self.head.take()));
         self.head = Some(new_node);
         self.size += 1;
     }
-    
+
     pub fn pop_front(&mut self) -> Option<T> {
         let node: Box<Node<T>> = self.head.take()?;
         self.head = node.next;
@@ -43,7 +49,6 @@ impl<T> LinkedList<T> {
         Some(node.value)
     }
 }
-
 
 impl<T: fmt::Display> fmt::Display for LinkedList<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -54,7 +59,7 @@ impl<T: fmt::Display> fmt::Display for LinkedList<T> {
                 Some(node) => {
                     result = format!("{} {}", result, node.value);
                     current = &node.next;
-                },
+                }
                 None => break,
             }
         }
@@ -72,14 +77,20 @@ impl<T> Drop for LinkedList<T> {
 }
 
 impl<T: Clone> Clone for Node<T> {
-    fn clone(&self) -> Self{
-        Node {value: self.value.clone(), next: self.next.clone()}
+    fn clone(&self) -> Self {
+        Node {
+            value: self.value.clone(),
+            next: self.next.clone(),
+        }
     }
 }
 
 impl<T: Clone> Clone for LinkedList<T> {
-    fn clone(&self) -> Self{
-        LinkedList {head: self.head.clone(), size: self.size}
+    fn clone(&self) -> Self {
+        LinkedList {
+            head: self.head.clone(),
+            size: self.size,
+        }
     }
 }
 
@@ -94,3 +105,39 @@ impl<T: PartialEq> PartialEq for LinkedList<T> {
         self.size == other.size && self.head == other.head
     }
 }
+
+impl<T> Iterator for LinkedList<T> {
+    type Item = T;
+    fn next(&mut self) -> Option<T> {
+        self.pop_front()
+    }
+}
+
+pub struct LinkedListIter<'a, T> {
+    current: &'a Option<Box<Node<T>>>,
+}
+
+impl<'a, T> Iterator for LinkedListIter<'a, T> {
+    type Item = &'a T;
+    fn next(&mut self) -> Option<&'a T> {
+        match self.current {
+            Some(node) => {
+                self.current = &node.next;
+                Some(&node.value)
+            }
+            None => None,
+        }
+    }
+}
+
+impl<'a, T> IntoIterator for &'a LinkedList<T> {
+    type Item = &'a T;
+    type IntoIter = LinkedListIter<'a, T>;
+    fn into_iter(self) -> Self::IntoIter {
+        LinkedListIter {
+            current: &self.head,
+        }
+    }
+}
+
+// 没明白怎么给&T实现
