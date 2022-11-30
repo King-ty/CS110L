@@ -141,3 +141,15 @@ impl<'a, T> IntoIterator for &'a LinkedList<T> {
 }
 
 // 没明白怎么给&T实现
+
+pub trait ComputeNorm {
+    fn compute_norm(&self) -> f64 {
+        0.0
+    }
+}
+
+impl ComputeNorm for LinkedList<f64> {
+    fn compute_norm(&self) -> f64 {
+        self.into_iter().map(|x| x * x).sum::<f64>().sqrt()
+    }
+}

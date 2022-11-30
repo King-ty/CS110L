@@ -48,4 +48,12 @@ fn main() {
     // println!();
 
     println!("list: {}", list);
+
+    use crate::linked_list::ComputeNorm;
+    let mut list_f64 = LinkedList::new();
+    for i in 1..3 {
+        list_f64.push_front(i as f64);
+    }
+    println!("list_f64: {}", list_f64);
+    println!("norm: {}", list_f64.compute_norm());
 }
