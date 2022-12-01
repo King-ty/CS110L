@@ -39,6 +39,7 @@ impl Debugger {
 
                 Status::Exited(status) => {
                     println!("Child exited (status {})", status);
+                    self.inferior = None;
                 }
 
                 Status::Signaled(sig) => {
@@ -51,10 +52,22 @@ impl Debugger {
         }
     }
 
+    pub fn kill(&mut self) -> Result<(), nix::Error> {
+        if self.inferior.is_some() {
+            let inferior = self.inferior.as_mut().unwrap();
+            println!("Killing running inferior (pid {})", inferior.pid());
+            inferior.kill()?;
+            self.inferior = None;
+        }
+        Ok(())
+    }
+
     pub fn run(&mut self) {
         loop {
             match self.get_next_command() {
                 DebuggerCommand::Run(args) => {
+                    // Kill existing inferior
+                    self.kill().unwrap();
                     if let Some(inferior) = Inferior::new(&self.target, &args) {
                         // Create the inferior
                         self.inferior = Some(inferior);
@@ -67,9 +80,14 @@ impl Debugger {
                     }
                 }
                 DebuggerCommand::Continue => {
-                    self.resume();
+                    if self.inferior.is_some() {
+                        self.resume();
+                    } else {
+                        println!("No running subprocess");
+                    }
                 }
                 DebuggerCommand::Quit => {
+                    self.kill().unwrap();
                     return;
                 }
             }

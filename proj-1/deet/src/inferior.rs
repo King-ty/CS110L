@@ -57,6 +57,11 @@ impl Inferior {
         self.wait(None)
     }
 
+    pub fn kill(&mut self) -> Result<Status, nix::Error> {
+        self.child.kill().unwrap();
+        self.wait(None)
+    }
+
     /// Returns the pid of this inferior.
     pub fn pid(&self) -> Pid {
         nix::unistd::Pid::from_raw(self.child.id() as i32)
