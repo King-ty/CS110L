@@ -29,6 +29,28 @@ impl Debugger {
         }
     }
 
+    pub fn resume(&mut self) {
+        match self.inferior.as_mut().unwrap().resume() {
+            Ok(status) => match status {
+                Status::Stopped(sig, _) => {
+                    // println!("Stopped, signal: {}, size: {}", sig, size);
+                    println!("Child stopped (signal {})", sig);
+                }
+
+                Status::Exited(status) => {
+                    println!("Child exited (status {})", status);
+                }
+
+                Status::Signaled(sig) => {
+                    println!("Signaled, signal: {}", sig);
+                }
+            },
+            Err(err) => {
+                println!("ERR: {}", err);
+            }
+        }
+    }
+
     pub fn run(&mut self) {
         loop {
             match self.get_next_command() {
@@ -39,27 +61,13 @@ impl Debugger {
                         // DONE (milestone 1): make the inferior run
                         // You may use self.inferior.as_mut().unwrap() to get a mutable reference
                         // to the Inferior object
-                        match self.inferior.as_mut().unwrap().resume() {
-                            Ok(status) => match status {
-                                Status::Stopped(sig, size) => {
-                                    println!("Stopped, signal: {}, size: {}", sig, size);
-                                }
-
-                                Status::Exited(status) => {
-                                    println!("Child exited (status {})", status);
-                                }
-
-                                Status::Signaled(sig) => {
-                                    println!("Signaled, signal: {}", sig);
-                                }
-                            },
-                            Err(err) => {
-                                println!("ERR: {}", err);
-                            }
-                        }
+                        self.resume();
                     } else {
                         println!("Error starting subprocess");
                     }
+                }
+                DebuggerCommand::Continue => {
+                    self.resume();
                 }
                 DebuggerCommand::Quit => {
                     return;
