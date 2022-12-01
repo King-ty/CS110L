@@ -1,3 +1,4 @@
+use crate::dwarf_data::DwarfData;
 use nix::sys::ptrace;
 use nix::sys::signal;
 use nix::sys::wait::{waitpid, WaitPidFlag, WaitStatus};
@@ -60,6 +61,32 @@ impl Inferior {
     pub fn kill(&mut self) -> Result<Status, nix::Error> {
         self.child.kill().unwrap();
         self.wait(None)
+    }
+
+    pub fn print_backtrace(&self, debug_data: &DwarfData) -> Result<(), nix::Error> {
+        // println!("%rip register: {:#x}", ptrace::getregs(self.pid())?.rip);
+        let regs = ptrace::getregs(self.pid())?;
+        let mut rip = regs.rip as usize;
+        let mut rbp = regs.rbp as usize;
+
+        loop {
+            let func = match debug_data.get_function_from_addr(rip) {
+                Some(func) => func,
+                None => "unknown func".to_string(),
+            };
+            let line = match debug_data.get_line_from_addr(rip) {
+                Some(line) => format!("{}: {}", line.file, line.number),
+                None => "source file not found".to_string(),
+            };
+            println!("{} ({})", func, line);
+            if func == "main" {
+                break;
+            }
+            rip = ptrace::read(self.pid(), (rbp + 8) as ptrace::AddressType)? as usize;
+            rbp = ptrace::read(self.pid(), rbp as ptrace::AddressType)? as usize;
+        }
+
+        Ok(())
     }
 
     /// Returns the pid of this inferior.
