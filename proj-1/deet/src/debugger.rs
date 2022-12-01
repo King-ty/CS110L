@@ -11,6 +11,7 @@ pub struct Debugger {
     readline: Editor<()>,
     inferior: Option<Inferior>,
     debug_data: DwarfData,
+    breakpoints: Vec<usize>,
 }
 
 impl Debugger {
@@ -28,6 +29,9 @@ impl Debugger {
                 std::process::exit(1);
             }
         };
+        // debug
+        println!("target: {}", target);
+        debug_data.print();
 
         let history_path = format!("{}/.deet_history", std::env::var("HOME").unwrap());
         let mut readline = Editor::<()>::new();
@@ -40,6 +44,7 @@ impl Debugger {
             readline,
             inferior: None,
             debug_data,
+            breakpoints: Vec::new(),
         }
     }
 
@@ -49,7 +54,7 @@ impl Debugger {
                 DebuggerCommand::Run(args) => {
                     // Kill existing inferior
                     self.kill().unwrap();
-                    if let Some(inferior) = Inferior::new(&self.target, &args) {
+                    if let Some(inferior) = Inferior::new(&self.target, &args, &self.breakpoints) {
                         // Create the inferior
                         self.inferior = Some(inferior);
                         // DONE (milestone 1): make the inferior run
@@ -82,11 +87,27 @@ impl Debugger {
                     self.kill().unwrap();
                     return;
                 }
+                DebuggerCommand::Break(addr_str) => {
+                    // TODO:
+                    if let Some(addr) = Self::parse_address(&addr_str[1..]) {
+                        self.breakpoints.push(addr);
+                        if self.inferior.is_some() {
+                            self.inferior.as_mut().unwrap().add_breakpoint(addr);
+                        }
+                        println!(
+                            "Set breakpoint {} at {}",
+                            self.breakpoints.len() - 1,
+                            addr_str
+                        );
+                    } else {
+                        println!("Set breakpoint failed");
+                    }
+                }
             }
         }
     }
 
-    pub fn resume(&mut self) {
+    fn resume(&mut self) {
         match self.inferior.as_mut().unwrap().resume() {
             Ok(status) => match status {
                 Status::Stopped(sig, rip) => {
@@ -114,7 +135,7 @@ impl Debugger {
         }
     }
 
-    pub fn kill(&mut self) -> Result<(), nix::Error> {
+    fn kill(&mut self) -> Result<(), nix::Error> {
         if self.inferior.is_some() {
             let inferior = self.inferior.as_mut().unwrap();
             println!("Killing running inferior (pid {})", inferior.pid());
@@ -122,6 +143,15 @@ impl Debugger {
             self.inferior = None;
         }
         Ok(())
+    }
+
+    fn parse_address(addr: &str) -> Option<usize> {
+        let addr_without_0x = if addr.to_lowercase().starts_with("0x") {
+            &addr[2..]
+        } else {
+            &addr
+        };
+        usize::from_str_radix(addr_without_0x, 16).ok()
     }
 
     /// This function prompts the user to enter a command, and continues re-prompting until the user
