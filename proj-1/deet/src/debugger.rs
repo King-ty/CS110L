@@ -89,9 +89,14 @@ impl Debugger {
     pub fn resume(&mut self) {
         match self.inferior.as_mut().unwrap().resume() {
             Ok(status) => match status {
-                Status::Stopped(sig, _) => {
+                Status::Stopped(sig, rip) => {
                     // println!("Stopped, signal: {}, size: {}", sig, size);
                     println!("Child stopped (signal {})", sig);
+                    let line = match self.debug_data.get_line_from_addr(rip) {
+                        Some(line) => format!("{}:{}", line.file, line.number),
+                        None => "source file not found".to_string(),
+                    };
+                    println!("Stopped at {}", line);
                 }
 
                 Status::Exited(status) => {

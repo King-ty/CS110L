@@ -36,7 +36,7 @@ impl Inferior {
     /// Attempts to start a new inferior process. Returns Some(Inferior) if successful, or None if
     /// an error is encountered.
     pub fn new(target: &str, args: &Vec<String>) -> Option<Inferior> {
-        // // TODO: implement me!
+        // DONE: implement me!
         // println!(
         //     "Inferior::new not implemented! target={}, args={:?}",
         //     target, args
@@ -70,14 +70,8 @@ impl Inferior {
         let mut rbp = regs.rbp as usize;
 
         loop {
-            let func = match debug_data.get_function_from_addr(rip) {
-                Some(func) => func,
-                None => "unknown func".to_string(),
-            };
-            let line = match debug_data.get_line_from_addr(rip) {
-                Some(line) => format!("{}: {}", line.file, line.number),
-                None => "source file not found".to_string(),
-            };
+            let func = Self::get_func(debug_data, rip);
+            let line = Self::get_line(debug_data, rip);
             println!("{} ({})", func, line);
             if func == "main" {
                 break;
@@ -87,6 +81,20 @@ impl Inferior {
         }
 
         Ok(())
+    }
+
+    pub fn get_func(debug_data: &DwarfData, rip: usize) -> String {
+        match debug_data.get_function_from_addr(rip) {
+            Some(func) => func,
+            None => "unknown func".to_string(),
+        }
+    }
+
+    pub fn get_line(debug_data: &DwarfData, rip: usize) -> String {
+        match debug_data.get_line_from_addr(rip) {
+            Some(line) => format!("{}:{}", line.file, line.number),
+            None => "source file not found".to_string(),
+        }
     }
 
     /// Returns the pid of this inferior.
