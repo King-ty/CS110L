@@ -91,24 +91,43 @@ impl Debugger {
                     return;
                 }
                 DebuggerCommand::Breakpoint(addr_str) => {
-                    // TODO:
-                    if let Some(addr) = Self::parse_address(&addr_str[1..]) {
-                        if self.inferior.is_some() {
-                            self.inferior
-                                .as_mut()
-                                .unwrap()
-                                .add_breakpoint(addr, &mut self.breakpoints);
+                    let breakpoint_addr: usize;
+                    if &addr_str[..1] == "*" {
+                        if let Some(addr) = Self::parse_address(&addr_str[1..]) {
+                            breakpoint_addr = addr;
                         } else {
-                            self.breakpoints.insert(addr, Breakpoint::new(addr, 0));
+                            println!("Parse address failed");
+                            continue;
                         }
-                        println!(
-                            "Set breakpoint {} at {}",
-                            self.breakpoints.len() - 1,
-                            addr_str
-                        );
+                    } else if let Ok(line_num) = usize::from_str_radix(&addr_str, 10) {
+                        if let Some(addr) = self.debug_data.get_addr_for_line(None, line_num) {
+                            breakpoint_addr = addr;
+                        } else {
+                            println!("Get address from line failed");
+                            continue;
+                        }
+                    } else if let Some(addr) =
+                        self.debug_data.get_addr_for_function(None, &addr_str)
+                    {
+                        breakpoint_addr = addr;
                     } else {
-                        println!("Set breakpoint failed");
+                        println!("Wrong breakpoint argment!");
+                        continue;
                     }
+                    if self.inferior.is_some() {
+                        self.inferior
+                            .as_mut()
+                            .unwrap()
+                            .add_breakpoint(breakpoint_addr, &mut self.breakpoints);
+                    } else {
+                        self.breakpoints
+                            .insert(breakpoint_addr, Breakpoint::new(breakpoint_addr, 0));
+                    }
+                    println!(
+                        "Set breakpoint {} at {:#x}",
+                        self.breakpoints.len() - 1,
+                        breakpoint_addr
+                    );
                 }
             }
         }
