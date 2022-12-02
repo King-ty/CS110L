@@ -65,11 +65,26 @@ impl Inferior {
         Some(inferior)
     }
 
-    pub fn resume<T: Into<Option<signal::Signal>>>(
-        &self,
+    pub fn resume<T: Clone + Into<Option<signal::Signal>>>(
+        &mut self,
         sig: T,
-        breakpoints: &mut HashMap<usize, Breakpoint>, // TODO: finish this
+        breakpoints: &mut HashMap<usize, Breakpoint>,
     ) -> Result<Status, nix::Error> {
+        let mut regs = ptrace::getregs(self.pid())?;
+        let rip = regs.rip as usize;
+        if let Some(breakpoint) = breakpoints.get(&rip) {
+            self.write_byte(rip - 1, breakpoint.get_byte())?;
+            regs.rip -= 1;
+            ptrace::setregs(self.pid(), regs)?;
+            ptrace::step(self.pid(), sig.clone())?;
+            match self.wait(None)? {
+                Status::Stopped(_, _) => {
+                    self.write_byte(rip - 1, 0xcc)?;
+                }
+                Status::Exited(status) => return Ok(Status::Exited(status)),
+                Status::Signaled(sig) => return Ok(Status::Signaled(sig)),
+            }
+        }
         ptrace::cont(self.pid(), sig)?;
         self.wait(None)
     }

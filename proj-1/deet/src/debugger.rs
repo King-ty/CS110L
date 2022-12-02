@@ -119,7 +119,7 @@ impl Debugger {
             .inferior
             .as_mut()
             .unwrap()
-            .resume(None, &self.breakpoints)
+            .resume(None, &mut self.breakpoints)
         {
             Ok(status) => match status {
                 Status::Stopped(sig, rip) => {
@@ -208,7 +208,6 @@ impl Debugger {
     }
 }
 
-// TODO: use this
 #[derive(Clone)]
 pub struct Breakpoint {
     addr: usize,
@@ -218,5 +217,9 @@ pub struct Breakpoint {
 impl Breakpoint {
     pub fn new(addr: usize, orig_byte: u8) -> Breakpoint {
         Breakpoint { addr, orig_byte }
+    }
+
+    pub fn get_byte(&self) -> u8 {
+        self.orig_byte
     }
 }
