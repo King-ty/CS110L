@@ -4,6 +4,7 @@ use crate::inferior::Inferior;
 use crate::inferior::Status;
 use rustyline::error::ReadlineError;
 use rustyline::Editor;
+use std::collections::HashMap;
 
 pub struct Debugger {
     target: String,
@@ -11,7 +12,7 @@ pub struct Debugger {
     readline: Editor<()>,
     inferior: Option<Inferior>,
     debug_data: DwarfData,
-    breakpoints: Vec<usize>,
+    breakpoints: HashMap<usize, Breakpoint>,
 }
 
 impl Debugger {
@@ -44,7 +45,7 @@ impl Debugger {
             readline,
             inferior: None,
             debug_data,
-            breakpoints: Vec::new(),
+            breakpoints: HashMap::new(),
         }
     }
 
@@ -54,7 +55,9 @@ impl Debugger {
                 DebuggerCommand::Run(args) => {
                     // Kill existing inferior
                     self.kill().unwrap();
-                    if let Some(inferior) = Inferior::new(&self.target, &args, &self.breakpoints) {
+                    if let Some(inferior) =
+                        Inferior::new(&self.target, &args, &mut self.breakpoints)
+                    {
                         // Create the inferior
                         self.inferior = Some(inferior);
                         // DONE (milestone 1): make the inferior run
@@ -87,12 +90,16 @@ impl Debugger {
                     self.kill().unwrap();
                     return;
                 }
-                DebuggerCommand::Break(addr_str) => {
+                DebuggerCommand::Breakpoint(addr_str) => {
                     // TODO:
                     if let Some(addr) = Self::parse_address(&addr_str[1..]) {
-                        self.breakpoints.push(addr);
                         if self.inferior.is_some() {
-                            self.inferior.as_mut().unwrap().add_breakpoint(addr);
+                            self.inferior
+                                .as_mut()
+                                .unwrap()
+                                .add_breakpoint(addr, &mut self.breakpoints);
+                        } else {
+                            self.breakpoints.insert(addr, Breakpoint::new(addr, 0));
                         }
                         println!(
                             "Set breakpoint {} at {}",
@@ -108,7 +115,12 @@ impl Debugger {
     }
 
     fn resume(&mut self) {
-        match self.inferior.as_mut().unwrap().resume() {
+        match self
+            .inferior
+            .as_mut()
+            .unwrap()
+            .resume(None, &self.breakpoints)
+        {
             Ok(status) => match status {
                 Status::Stopped(sig, rip) => {
                     // println!("Stopped, signal: {}, size: {}", sig, size);
@@ -193,5 +205,18 @@ impl Debugger {
                 }
             }
         }
+    }
+}
+
+// TODO: use this
+#[derive(Clone)]
+pub struct Breakpoint {
+    addr: usize,
+    orig_byte: u8,
+}
+
+impl Breakpoint {
+    pub fn new(addr: usize, orig_byte: u8) -> Breakpoint {
+        Breakpoint { addr, orig_byte }
     }
 }

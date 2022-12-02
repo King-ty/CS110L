@@ -1,8 +1,10 @@
+use crate::debugger::Breakpoint;
 use crate::dwarf_data::DwarfData;
 use nix::sys::ptrace;
 use nix::sys::signal;
 use nix::sys::wait::{waitpid, WaitPidFlag, WaitStatus};
 use nix::unistd::Pid;
+use std::collections::HashMap;
 use std::mem::size_of;
 use std::os::unix::process::CommandExt;
 use std::process::{Child, Command};
@@ -36,7 +38,11 @@ pub struct Inferior {
 impl Inferior {
     /// Attempts to start a new inferior process. Returns Some(Inferior) if successful, or None if
     /// an error is encountered.
-    pub fn new(target: &str, args: &Vec<String>, breakpoints: &Vec<usize>) -> Option<Inferior> {
+    pub fn new(
+        target: &str,
+        args: &Vec<String>,
+        breakpoints: &mut HashMap<usize, Breakpoint>,
+    ) -> Option<Inferior> {
         // DONE: implement me!
         // println!(
         //     "Inferior::new not implemented! target={}, args={:?}",
@@ -51,14 +57,20 @@ impl Inferior {
         let child = cmd.args(args).spawn().ok()?;
         let mut inferior = Inferior { child };
         inferior.wait(None).ok()?;
-        for breakpoint in breakpoints {
-            inferior.add_breakpoint(*breakpoint);
+        for addr in breakpoints.clone().keys() {
+            // let orig_byte = inferior.add_breakpoint(*addr).unwrap();
+            // breakpoints.insert(*addr, Breakpoint::new(*addr, orig_byte));
+            inferior.add_breakpoint(*addr, breakpoints);
         }
         Some(inferior)
     }
 
-    pub fn resume(&self) -> Result<Status, nix::Error> {
-        ptrace::cont(self.pid(), None)?;
+    pub fn resume<T: Into<Option<signal::Signal>>>(
+        &self,
+        sig: T,
+        breakpoints: &mut HashMap<usize, Breakpoint>, // TODO: finish this
+    ) -> Result<Status, nix::Error> {
+        ptrace::cont(self.pid(), sig)?;
         self.wait(None)
     }
 
@@ -87,9 +99,12 @@ impl Inferior {
         Ok(())
     }
 
-    pub fn add_breakpoint(&mut self, addr: usize) {
-        if let Err(err) = self.write_byte(addr, 0xcc) {
-            println!("Failed to add breakpoint: {}", err);
+    pub fn add_breakpoint(&mut self, addr: usize, breakpoints: &mut HashMap<usize, Breakpoint>) {
+        match self.write_byte(addr, 0xcc) {
+            Ok(orig_byte) => {
+                breakpoints.insert(addr, Breakpoint::new(addr, orig_byte));
+            }
+            Err(_) => println!("Invalid breakpoint address {:#x}", addr),
         }
     }
 
