@@ -1,4 +1,3 @@
-use crate::debugger::Breakpoint;
 use crate::dwarf_data::DwarfData;
 use nix::sys::ptrace;
 use nix::sys::signal;
@@ -41,7 +40,7 @@ impl Inferior {
     pub fn new(
         target: &str,
         args: &Vec<String>,
-        breakpoints: &mut HashMap<usize, Breakpoint>,
+        breakpoints: &mut HashMap<usize, u8>,
     ) -> Option<Inferior> {
         // DONE: implement me!
         // println!(
@@ -68,12 +67,12 @@ impl Inferior {
     pub fn resume<T: Clone + Into<Option<signal::Signal>>>(
         &mut self,
         sig: T,
-        breakpoints: &mut HashMap<usize, Breakpoint>,
+        breakpoints: &mut HashMap<usize, u8>,
     ) -> Result<Status, nix::Error> {
         let mut regs = ptrace::getregs(self.pid())?;
         let rip = regs.rip as usize;
-        if let Some(breakpoint) = breakpoints.get(&rip) {
-            self.write_byte(rip - 1, breakpoint.get_byte())?;
+        if let Some(orig_byte) = breakpoints.get(&rip) {
+            self.write_byte(rip - 1, *orig_byte)?;
             regs.rip -= 1;
             ptrace::setregs(self.pid(), regs)?;
             ptrace::step(self.pid(), sig.clone())?;
@@ -114,10 +113,10 @@ impl Inferior {
         Ok(())
     }
 
-    pub fn add_breakpoint(&mut self, addr: usize, breakpoints: &mut HashMap<usize, Breakpoint>) {
+    pub fn add_breakpoint(&mut self, addr: usize, breakpoints: &mut HashMap<usize, u8>) {
         match self.write_byte(addr, 0xcc) {
             Ok(orig_byte) => {
-                breakpoints.insert(addr, Breakpoint::new(addr, orig_byte));
+                breakpoints.insert(addr, orig_byte);
             }
             Err(_) => println!("Invalid breakpoint address {:#x}", addr),
         }

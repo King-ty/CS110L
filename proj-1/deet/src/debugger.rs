@@ -12,7 +12,7 @@ pub struct Debugger {
     readline: Editor<()>,
     inferior: Option<Inferior>,
     debug_data: DwarfData,
-    breakpoints: HashMap<usize, Breakpoint>,
+    breakpoints: HashMap<usize, u8>,
 }
 
 impl Debugger {
@@ -120,8 +120,7 @@ impl Debugger {
                             .unwrap()
                             .add_breakpoint(breakpoint_addr, &mut self.breakpoints);
                     } else {
-                        self.breakpoints
-                            .insert(breakpoint_addr, Breakpoint::new(breakpoint_addr, 0));
+                        self.breakpoints.insert(breakpoint_addr, 0);
                     }
                     println!(
                         "Set breakpoint {} at {:#x}",
@@ -224,21 +223,5 @@ impl Debugger {
                 }
             }
         }
-    }
-}
-
-#[derive(Clone)]
-pub struct Breakpoint {
-    addr: usize,
-    orig_byte: u8,
-}
-
-impl Breakpoint {
-    pub fn new(addr: usize, orig_byte: u8) -> Breakpoint {
-        Breakpoint { addr, orig_byte }
-    }
-
-    pub fn get_byte(&self) -> u8 {
-        self.orig_byte
     }
 }
