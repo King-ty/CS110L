@@ -92,7 +92,7 @@ impl Debugger {
                 }
                 DebuggerCommand::Breakpoint(addr_str) => {
                     let breakpoint_addr: usize;
-                    if &addr_str[..1] == "*" {
+                    if addr_str.starts_with("*") {
                         if let Some(addr) = Self::parse_address(&addr_str[1..]) {
                             breakpoint_addr = addr;
                         } else {
@@ -111,7 +111,7 @@ impl Debugger {
                     {
                         breakpoint_addr = addr;
                     } else {
-                        println!("Wrong breakpoint argment!");
+                        println!("Usage: <b|break|breakpoint> <*address|line|func>");
                         continue;
                     }
                     if self.inferior.is_some() {
@@ -137,7 +137,7 @@ impl Debugger {
             .inferior
             .as_mut()
             .unwrap()
-            .resume(None, &mut self.breakpoints)
+            .resume(None, &self.breakpoints)
         {
             Ok(status) => match status {
                 Status::Stopped(sig, rip) => {

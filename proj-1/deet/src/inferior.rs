@@ -67,7 +67,7 @@ impl Inferior {
     pub fn resume<T: Clone + Into<Option<signal::Signal>>>(
         &mut self,
         sig: T,
-        breakpoints: &mut HashMap<usize, u8>,
+        breakpoints: &HashMap<usize, u8>,
     ) -> Result<Status, nix::Error> {
         let mut regs = ptrace::getregs(self.pid())?;
         let rip = regs.rip as usize;
