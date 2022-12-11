@@ -4,25 +4,31 @@ mod response;
 use clap::Parser;
 use rand::{Rng, SeedableRng};
 use std::net::{TcpListener, TcpStream};
+use std::sync::Arc;
+use threadpool::ThreadPool;
 
 /// Contains information parsed from the command-line invocation of balancebeam. The Clap macros
 /// provide a fancy way to automatically construct a command-line argument parser.
 #[derive(Parser, Debug)]
 #[command(about = "Fun with load balancing")]
 struct CmdOptions {
-    /// "IP/port to bind to"
+    /// IP/port to bind to
     #[arg(short, long, default_value = "0.0.0.0:1100")]
     bind: String,
-    /// "Upstream host to forward requests to"
+
+    /// Upstream host to forward requests to
     #[arg(short, long)]
     upstream: Vec<String>,
-    /// "Perform active health checks on this interval (in seconds)"
+
+    /// Perform active health checks on this interval (in seconds)
     #[arg(long, default_value = "10")]
     active_health_check_interval: usize,
-    /// "Path to send request to for active health checks"
+
+    /// Path to send request to for active health checks
     #[arg(long, default_value = "/")]
     active_health_check_path: String,
-    /// "Maximum number of requests to accept per IP per minute (0 = unlimited)"
+
+    /// Maximum number of requests to accept per IP per minute (0 = unlimited)
     #[arg(long, default_value = "0")]
     max_requests_per_minute: usize,
 }
@@ -35,12 +41,15 @@ struct ProxyState {
     /// How frequently we check whether upstream servers are alive (Milestone 4)
     #[allow(dead_code)]
     active_health_check_interval: usize,
+
     /// Where we should send requests when doing active health checks (Milestone 4)
     #[allow(dead_code)]
     active_health_check_path: String,
+
     /// Maximum number of requests an individual IP can make in a minute (Milestone 5)
     #[allow(dead_code)]
     max_requests_per_minute: usize,
+
     /// Addresses of servers that we are proxying to
     upstream_addresses: Vec<String>,
 }
@@ -72,18 +81,24 @@ fn main() {
     log::info!("Listening for requests on {}", options.bind);
 
     // Handle incoming connections
-    let state = ProxyState {
+    let state = Arc::new(ProxyState {
         upstream_addresses: options.upstream,
         active_health_check_interval: options.active_health_check_interval,
         active_health_check_path: options.active_health_check_path,
         max_requests_per_minute: options.max_requests_per_minute,
-    };
+    });
+    let n_workers = num_cpus::get();
+    let pool = ThreadPool::new(n_workers);
     for stream in listener.incoming() {
+        let state = state.clone();
         if let Ok(stream) = stream {
             // Handle the connection!
-            handle_connection(stream, &state);
+            pool.execute(move || {
+                handle_connection(stream, &state);
+            })
         }
     }
+    pool.join();
 }
 
 fn connect_to_upstream(state: &ProxyState) -> Result<TcpStream, std::io::Error> {

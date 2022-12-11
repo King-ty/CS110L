@@ -64,7 +64,7 @@ pub fn extend_header_value(
     request
         .headers_mut()
         .insert(name, http::HeaderValue::from_bytes(&new_value).unwrap());
-}
+} 
 
 /// Attempts to parse the data in the supplied buffer as an HTTP request. Returns one of the
 /// following:
