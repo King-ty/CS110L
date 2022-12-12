@@ -52,11 +52,11 @@ struct ProxyState {
     /// Maximum number of requests an individual IP can make in a minute (Milestone 5)
     max_requests_per_minute: usize,
 
+    // DONE: 改用Arc存String，减少clone
     /// Addresses of servers that we are proxying to
-    /// TODO: 改用Arc存String，减少clone
-    upstream_addresses: RwLock<Vec<String>>,
+    upstream_addresses: RwLock<Vec<Arc<String>>>,
 
-    failed_upstream_addresses: RwLock<Vec<String>>,
+    failed_upstream_addresses: RwLock<Vec<Arc<String>>>,
 
     slide_windows: Mutex<HashMap<String, SlideWindow>>,
 }
@@ -97,8 +97,12 @@ async fn main() {
     log::info!("Listening for requests on {}", options.bind);
 
     // Handle incoming connections
+    let mut streams = Vec::new();
+    for stream in options.upstream {
+        streams.push(Arc::new(stream));
+    }
     let state = Arc::new(ProxyState {
-        upstream_addresses: RwLock::new(options.upstream),
+        upstream_addresses: RwLock::new(streams),
         active_health_check_interval: options.active_health_check_interval,
         active_health_check_path: options.active_health_check_path,
         max_requests_per_minute: options.max_requests_per_minute,
@@ -151,10 +155,10 @@ pub async fn upstream_active_health_check(path: &str, upstream: &str) -> bool {
 }
 
 async fn filter_upstream_addresses(
-    upstream_addresses: &RwLock<Vec<String>>,
+    upstream_addresses: &RwLock<Vec<Arc<String>>>,
     path: &str,
     active_flag: bool,
-) -> Vec<String> {
+) -> Vec<Arc<String>> {
     let upstream_addresses_rd = upstream_addresses.read().await;
     let mut ret = Vec::new();
     let mut remain = Vec::new();
@@ -218,7 +222,7 @@ async fn connect_to_upstream(state: &ProxyState) -> Result<TcpStream, std::io::E
         let mut rng = rand::rngs::StdRng::from_entropy();
         let upstream_addresses_rd = state.upstream_addresses.read().await;
         let upstream_idx = rng.gen_range(0..upstream_addresses_rd.len());
-        let upstream_ip = &upstream_addresses_rd[upstream_idx].clone(); // clone并drop，加速
+        let upstream_ip = &*upstream_addresses_rd[upstream_idx].clone(); // clone并drop，加速
         drop(upstream_addresses_rd);
         match TcpStream::connect(upstream_ip).await {
             Ok(some) => return Ok(some),
