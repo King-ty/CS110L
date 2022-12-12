@@ -3,11 +3,12 @@ mod response;
 
 use clap::Parser;
 use rand::{Rng, SeedableRng};
+use std::collections::HashMap;
 use std::io::{Error, ErrorKind};
 use std::sync::Arc;
 use tokio::net::{TcpListener, TcpStream};
-use tokio::sync::RwLock;
-use tokio::time::{sleep, Duration};
+use tokio::sync::{Mutex, RwLock};
+use tokio::time::{sleep, Duration, Instant};
 // use std::time::Duration;
 // use delay_timer::prelude::{Task, TaskBuilder, TaskError};
 
@@ -49,13 +50,23 @@ struct ProxyState {
     active_health_check_path: String,
 
     /// Maximum number of requests an individual IP can make in a minute (Milestone 5)
-    #[allow(dead_code)]
     max_requests_per_minute: usize,
 
     /// Addresses of servers that we are proxying to
+    /// TODO: 改用Arc存String，减少clone
     upstream_addresses: RwLock<Vec<String>>,
 
     failed_upstream_addresses: RwLock<Vec<String>>,
+
+    slide_windows: Mutex<HashMap<String, SlideWindow>>,
+}
+
+struct SlideWindow {
+    capacity: usize,
+    time_unit: u64,
+    cur_time: Instant,
+    pre_count: usize,
+    cur_count: usize,
 }
 
 #[tokio::main]
@@ -92,6 +103,7 @@ async fn main() {
         active_health_check_path: options.active_health_check_path,
         max_requests_per_minute: options.max_requests_per_minute,
         failed_upstream_addresses: RwLock::new(Vec::new()),
+        slide_windows: Mutex::new(HashMap::new()),
     });
 
     let state_clone = state.clone();
@@ -238,6 +250,43 @@ async fn send_response(client_conn: &mut TcpStream, response: &http::Response<Ve
     }
 }
 
+impl SlideWindow {
+    pub fn new(
+        capacity: usize,
+        time_unit: u64,
+        cur_time: Instant,
+        pre_count: usize,
+        cur_count: usize,
+    ) -> Self {
+        SlideWindow {
+            capacity,
+            time_unit,
+            cur_time,
+            pre_count,
+            cur_count,
+        }
+    }
+    pub fn should_rate_limiting(&mut self) -> bool {
+        if self.capacity == 0 {
+            return false;
+        }
+        if self.cur_time.elapsed().as_secs() >= self.time_unit {
+            self.cur_time = Instant::now();
+            self.pre_count = self.cur_count;
+            self.cur_count = 0;
+        }
+        let estimated_count = self.pre_count as f64
+            * (1.0 - self.cur_time.elapsed().as_secs() as f64 / self.time_unit as f64)
+            + self.cur_count as f64;
+        if estimated_count >= self.capacity as f64 {
+            // should limit
+            return true;
+        }
+        self.cur_count += 1;
+        false
+    }
+}
+
 async fn handle_connection(mut client_conn: TcpStream, state: &ProxyState) {
     let client_ip = client_conn.peer_addr().unwrap().ip().to_string();
     log::info!("Connection received from {}", client_ip);
@@ -289,6 +338,25 @@ async fn handle_connection(mut client_conn: TcpStream, state: &ProxyState) {
             upstream_ip,
             request::format_request_line(&request)
         );
+
+        // DONE: rate limiting here
+        if state.max_requests_per_minute > 0 {
+            let mut slide_windows = state.slide_windows.lock().await;
+            let slide_window = slide_windows
+                .entry(client_ip.clone())
+                .or_insert(SlideWindow::new(
+                    state.max_requests_per_minute,
+                    60,
+                    Instant::now(),
+                    0,
+                    0,
+                ));
+            if slide_window.should_rate_limiting() {
+                let response = response::make_http_error(http::StatusCode::TOO_MANY_REQUESTS);
+                send_response(&mut client_conn, &response).await;
+                continue;
+            }
+        }
 
         // Add X-Forwarded-For header so that the upstream server knows the client's IP address.
         // (We're the ones connecting directly to the upstream server, so without this header, the
